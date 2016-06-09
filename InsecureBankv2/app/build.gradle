@@ -5,16 +5,25 @@ android {
     buildToolsVersion "22.0.1"
 
     defaultConfig {
-        applicationId "com.android.insecurebankv2"
-        minSdkVersion 15
+        applicationId "com.ken5scal.insecurebankv2"
+        minSdkVersion 10
         targetSdkVersion 22
-        versionCode 1
-        versionName "1.0"
+        versionCode 4
+        versionName "4.0"
+    }
+    signingConfigs {
+        release {
+            storeFile file("ken5scal.jks")
+            storePassword "U3agirabi-02"
+            keyAlias "damn_vulb_app"
+            keyPassword "U3agirabi-02"
+        }
     }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
 }
