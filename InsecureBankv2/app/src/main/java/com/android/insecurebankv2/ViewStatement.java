@@ -38,7 +38,7 @@ public class ViewStatement extends Activity {
             //   Location where the statements are stored locally on the device sdcard
             mWebView.loadUrl("file://" + Environment.getExternalStorageDirectory() + "/Statements_" + uname + ".html");
             mWebView.getSettings().setJavaScriptEnabled(true);
-            mWebView.addJavascriptInterface(new JSInterface(this), "injectobject");
+            mWebView.addJavascriptInterface(new JSInterface(this), "JS");
             mWebView.getSettings().setSaveFormData(true);
             mWebView.getSettings().setBuiltInZoomControls(true);
             mWebView.setWebViewClient(new MyWebViewClient());

@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.AssetManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -29,9 +30,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.URL;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +50,13 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
 
 /*
 The page that accepts new password and passes it on to the change password 
@@ -64,6 +79,7 @@ public class DoLogin extends Activity {
     String protocol = "http://";
     BufferedReader reader;
     SharedPreferences serverDetails;
+    AssetManager assetManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -75,6 +91,7 @@ public class DoLogin extends Activity {
         serverDetails = PreferenceManager.getDefaultSharedPreferences(this);
         serverip = serverDetails.getString("serverip", null);
         serverport = serverDetails.getString("serverport", null);
+        assetManager = getResources().getAssets();
         if (serverip != null && serverport != null) {
 
             Intent data = getIntent();
@@ -94,10 +111,63 @@ public class DoLogin extends Activity {
 
         @Override
         protected String doInBackground(String... params) {
+            TrustManagerFactory trustManagerFactory;
             try {
+                URL url = new URL("https://moneyforward.com");
+                KeyStore ks = KeyStore.getInstance("BKS");
+                ks.load(null);
+                CertificateFactory factory = CertificateFactory.getInstance("X509");
+
+                X509Certificate x509 = (X509Certificate) factory.generateCertificate(
+                        assetManager.open("cacert.crt")
+                );
+                String alias = x509.getSubjectDN().getName();
+                ks.setCertificateEntry(alias, x509);
+
+                TrustManager tm = new X509TrustManager() {
+                    @Override
+                    public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+
+                    }
+
+                    @Override
+                    public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+
+                    }
+
+                    @Override
+                    public X509Certificate[] getAcceptedIssuers() {
+                        return new X509Certificate[0];
+                    }
+                };
+
+                trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+                trustManagerFactory.init(ks);
+
+                SSLContext sslContext = SSLContext.getInstance("SSLv3");
+                sslContext.init(null, new TrustManager[]{tm}, null);
+
+                HttpsURLConnection.setDefaultSSLSocketFactory(sslContext.getSocketFactory());
+                HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
+                    @Override
+                    public boolean verify(String hostname, SSLSession session) {
+                        return true;
+                    }
+                });
+
+                HttpsURLConnection resp = (HttpsURLConnection) url.openConnection();
+                resp.setSSLSocketFactory(sslContext.getSocketFactory());
+                resp.getResponseCode();
+
                 postData(params[0]);
             } catch (InvalidKeyException | NoSuchAlgorithmException | NoSuchPaddingException | InvalidAlgorithmParameterException | IllegalBlockSizeException | BadPaddingException | IOException | JSONException e) {
                 // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (KeyStoreException e) {
+                e.printStackTrace();
+            } catch (CertificateException e) {
+                e.printStackTrace();
+            } catch (KeyManagementException e) {
                 e.printStackTrace();
             }
 
@@ -144,7 +214,10 @@ public class DoLogin extends Activity {
             result = result.replace("\n", "");
             if (result != null) {
                 if (result.indexOf("Correct Credentials") != -1) {
-                    Log.v("Log Vervose Login:", ", account=" + username + ":" + password);
+
+                    Log.v("Unfavorable Log:", ", Some Sensitive Information goes here");
+
+
                     saveCreds(username, password);
                     trackUserLogins();
                     Intent pL = new Intent(getApplicationContext(), PostLogin.class);
@@ -203,7 +276,6 @@ public class DoLogin extends Activity {
             cipher.init(Cipher.ENCRYPT_MODE, newKey, ivSpec);
             byte[] encrypted = cipher.doFinal(rememberme_password.getBytes("UTF-8"));
 
-
             String base64Username = Base64.encodeToString(encrypted, Base64.DEFAULT);
             CryptoClass crypt = new CryptoClass();
             superSecurePassword = crypt.aesEncryptedString(rememberme_password);
@@ -260,4 +332,5 @@ public class DoLogin extends Activity {
         Intent i = new Intent(this, FilePrefActivity.class);
         startActivity(i);
     }
+
 }
